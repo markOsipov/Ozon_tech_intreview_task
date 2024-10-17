@@ -1,44 +1,31 @@
-import random
+from time import sleep
 
 import pytest
 from network.dog_ceo_client import DogCeoClient
 from network.ya_uploader import YaUploader
+from utils.test_folder_manager import TestFolderManager
+from utils.upload_photos import upload_photos
 
 
-
-
-
-def u(breed):
+@pytest.mark.parametrize("breed", ["doberman"])
+def test_upload_dog_no_sub_breeds(breed: str):
+    ya_uploader = YaUploader()
     dog_ceo_client = DogCeoClient()
-    sub_breeds = dog_ceo_client.get_sub_breeds(breed)
-    urls = dog_ceo_client.get_urls(breed, sub_breeds)
-    yandex_client = YaUploader()
-    yandex_client.create_folder('test_folder')
+    test_folder = TestFolderManager.get_unique_test_folder()
 
-    for url in urls:
-        part_name = url.split('/')
-        name = '_'.join([part_name[-2], part_name[-1]])
-        yandex_client.upload_photos_to_yd("test_folder", url, name)
+    upload_photos(breed, test_folder)
 
+    sleep(1)
+    yd_folder = ya_uploader.get_folder(test_folder)
 
-@pytest.mark.parametrize('breed', ['doberman', random.choice(['bulldog', 'collie'])])
-def test_upload_dog_no_sub_breeds(breed):
-    u(breed)
+    assert yd_folder['type'] == "dir"
+    assert yd_folder['name'] == test_folder
 
-    uploader = YaUploader()
-    dog_ceo_client = DogCeoClient()
-
-    response = uploader.create_folder("test_folder")
-    assert response['type'] == "dir"
-    assert response['name'] == "test_folder"
-
-    items = response['_embedded']['items']
+    items = yd_folder['_embedded']['items']
     breeds = dog_ceo_client.get_sub_breeds(breed)
 
-    if not breeds:
-        assert len(items) == 1
-    else:
-        assert len(items) == len(breeds)
+    assert len(breeds) == 0
+    assert len(items) == 1
 
     for item in items:
         assert item['type'] == 'file'
@@ -46,17 +33,20 @@ def test_upload_dog_no_sub_breeds(breed):
 
 
 @pytest.mark.parametrize('breed', ['bulldog', 'collie'])
-def test_upload_dog_with_sub_breeds(breed):
-    u(breed)
-
-    uploader = YaUploader()
+def test_upload_dog_with_sub_breeds(breed: str):
+    ya_uploader = YaUploader()
     dog_ceo_client = DogCeoClient()
+    test_folder = TestFolderManager.get_unique_test_folder()
 
-    response = uploader.create_folder("test_folder")
-    assert response['type'] == "dir"
-    assert response['name'] == "test_folder"
+    upload_photos(breed, test_folder)
 
-    items = response['_embedded']['items']
+    sleep(1)
+    yd_folder = ya_uploader.get_folder(test_folder)
+
+    assert yd_folder['type'] == "dir"
+    assert yd_folder['name'] == test_folder
+
+    items = yd_folder['_embedded']['items']
     breeds = dog_ceo_client.get_sub_breeds(breed)
 
     assert len(breeds) > 0
