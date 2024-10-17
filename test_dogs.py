@@ -1,73 +1,65 @@
-import random
-
 import pytest
-import requests
+
+from contants.breeds import Breeds
+from network.dog_ceo_client import DogCeoClient
+from network.ya_uploader import YaUploader
+from utils.test_folder_manager import TestFolderManager
+from utils.upload_photos import upload_photos
+from utils.wait_for_condiion import wait_for_condition
 
 
-class YaUploader:
-    def __init__(self):
-        pass
+class TestDogPicturesUpload:
 
-    def create_folder(self, path, token):
-        url_create = 'https://cloud-api.yandex.net/v1/disk/resources'
-        headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'OAuth {token}'}
-        response = requests.put(f'{url_create}?path={path}', headers = headers)
+    @pytest.mark.parametrize("breed", [Breeds.DOBERMAN])
+    def test_upload_dog_no_sub_breeds(self, breed: str):
+        ya_uploader = YaUploader()
+        dog_ceo_client = DogCeoClient()
+        test_folder = TestFolderManager.get_unique_test_folder()
 
-    def upload_photos_to_yd(self, token, path, url_file, name):
-        url = "https://cloud-api.yandex.net/v1/disk/resources/upload"
-        headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'OAuth {token}'}
-        params = {"path": f'/{path}/{name}', 'url': url_file, "overwrite": "true"}
-        resp = requests.post(url, headers=headers, params=params)
+        upload_photos(breed, test_folder)
 
+        breeds = dog_ceo_client.get_sub_breeds(breed)
+        assert len(breeds) == 0
 
-def get_sub_breeds(breed):
-    res = requests.get(f'https://dog.ceo/api/breed/{breed}/list')
-    return res.json().get('message', [])
+        yd_folder = wait_for_condition(
+            "Yandex folder contains items",
+            action=lambda: ya_uploader.get_folder(test_folder),
+            condition=lambda result: len(result['_embedded']['items']) > 0
+        )
 
+        assert yd_folder['type'] == "dir"
+        assert yd_folder['name'] == test_folder
 
-def get_urls(breed, sub_breeds):
-    url_images = []
-    if sub_breeds:
-        for sub_breed in sub_breeds:
-            res = requests.get(f"https://dog.ceo/api/breed/{breed}/{sub_breed}/images/random")
-            sub_breed_urls = res.json().get('message')
-            url_images.append(sub_breed_urls)
-    else:
-        url_images.append(requests.get(f"https://dog.ceo/api/breed/{breed}/images/random").json().get('message'))
-    return url_images
+        items = yd_folder['_embedded']['items']
+        assert len(items) == 1
 
-
-def u(breed):
-    sub_breeds = get_sub_breeds(breed)
-    urls = get_urls(breed, sub_breeds)
-    yandex_client = YaUploader()
-    yandex_client.create_folder('test_folder', "AgAAAAAJtest_tokenxkUEdew")
-    for url in urls:
-        part_name = url.split('/')
-        name = '_'.join([part_name[-2], part_name[-1]])
-        yandex_client.upload_photos_to_yd("AgAAAAAJtest_tokenxkUEdew", "test_folder", url, name)
-
-
-@pytest.mark.parametrize('breed', ['doberman', random.choice(['bulldog', 'collie'])])
-def test_proverka_upload_dog(breed):
-    u(breed)
-    # проверка
-    url_create = 'https://cloud-api.yandex.net/v1/disk/resources'
-    headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'OAuth AgAAAAAJtest_tokenxkUEdew'}
-    response = requests.get(f'{url_create}?path=/test_folder', headers=headers)
-    assert response.json()['type'] == "dir"
-    assert response.json()['name'] == "test_folder"
-    assert True
-    if get_sub_breeds(breed) == []:
-        assert len(response.json()['_embedded']['items']) == 1
-        for item in response.json()['_embedded']['items']:
-            assert item['type'] == 'file'
-            assert item['name'].startswith(breed)
-
-    else:
-        assert len(response.json()['_embedded']['items']) == len(get_sub_breeds(breed))
-        for item in response.json()['_embedded']['items']:
+        for item in items:
             assert item['type'] == 'file'
             assert item['name'].startswith(breed)
 
 
+    @pytest.mark.parametrize("breed", [Breeds.BULLDOG, Breeds.COLLIE])
+    def test_upload_dog_with_sub_breeds(self, breed: str):
+        ya_uploader = YaUploader()
+        dog_ceo_client = DogCeoClient()
+        test_folder = TestFolderManager.get_unique_test_folder()
+
+        upload_photos(breed, test_folder)
+
+        breeds = dog_ceo_client.get_sub_breeds(breed)
+        assert len(breeds) > 0
+
+        yd_folder = wait_for_condition(
+            f"Yandex folder contains {len(breeds)} items",
+            action=lambda: ya_uploader.get_folder(test_folder),
+            condition=lambda result: len(result['_embedded']['items']) == len(breeds)
+        )
+
+        assert yd_folder['type'] == "dir"
+        assert yd_folder['name'] == test_folder
+
+        items = yd_folder['_embedded']['items']
+
+        for item in items:
+            assert item['type'] == 'file'
+            assert item['name'].startswith(breed)

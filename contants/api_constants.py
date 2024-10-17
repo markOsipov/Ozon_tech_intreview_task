@@ -1,0 +1,3 @@
+class ApiConstants:
+    YANDEX_OAUTH_TOKEN = 'y0_AgAAAAAT4tiAAAyfbgAAAAEUzgNRAAC73alIQYVFzbUAA8VpdhkWmsRWYQ'
+
