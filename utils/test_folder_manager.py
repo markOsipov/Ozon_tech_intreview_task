@@ -16,6 +16,7 @@ class TestFolderManager:
 
     @staticmethod
     def delete_all_folders():
+        print(f"Deleting {len(TestFolderManager.created_folders)} test folders")
         for folder in TestFolderManager.created_folders:
             try:
                 YaUploader().delete_folder(folder, True)

@@ -5,7 +5,7 @@ from typing import Callable, Any
 def wait_for_condition(
         description: str,
         max_retries: int = 10,
-        retry_timeout: int = 0.5,
+        retry_timeout: int = 1.0,
         action: Callable[..., Any] = lambda: True,
         condition: Callable[[Any], bool] = lambda result: bool(result),
 ) -> Any:
