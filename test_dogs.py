@@ -50,7 +50,7 @@ class TestDogPicturesUpload:
         assert len(breeds) > 0
 
         yd_folder = wait_for_condition(
-            "Yandex folder contains items",
+            f"Yandex folder contains {len(breeds)} items",
             action=lambda: ya_uploader.get_folder(test_folder),
             condition=lambda result: len(result['_embedded']['items']) == len(breeds)
         )
